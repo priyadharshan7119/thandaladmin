@@ -1,0 +1,14 @@
+{
+  "name": "thandal-admin-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Thandal chit-fund admin console – vanilla HTML/CSS/JS served via Vite.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
