@@ -7,7 +7,18 @@
   "rewrites": [
     { "source": "/login",             "destination": "/pages/auth/login.html" },
     { "source": "/register",          "destination": "/pages/auth/register.html" },
-    { "source": "/pages/auth/:path*", "destination": "/pages/auth/:path*" },
-    { "source": "/((?!api/|pages/auth/|css/|js/|assets/|favicon.ico).*)", "destination": "/index.html" }
+    { "source": "/dashboard",         "destination": "/index.html" },
+    { "source": "/customers",         "destination": "/index.html" },
+    { "source": "/customers/:path*",  "destination": "/index.html" },
+    { "source": "/agents",            "destination": "/index.html" },
+    { "source": "/agents/:path*",     "destination": "/index.html" },
+    { "source": "/chits",             "destination": "/index.html" },
+    { "source": "/chits/:path*",      "destination": "/index.html" },
+    { "source": "/payments",          "destination": "/index.html" },
+    { "source": "/payments/:path*",   "destination": "/index.html" },
+    { "source": "/reports",           "destination": "/index.html" },
+    { "source": "/audit-logs",        "destination": "/index.html" },
+    { "source": "/admin-users",       "destination": "/index.html" },
+    { "source": "/settings",          "destination": "/index.html" }
   ]
 }
