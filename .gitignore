@@ -3,6 +3,7 @@
 
 # Environment / secrets
 .env
+.env.example
 .env.local
 .env.*.local
 
