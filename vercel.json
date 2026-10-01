@@ -7,20 +7,7 @@
   "rewrites": [
     { "source": "/login",             "destination": "/pages/auth/login.html" },
     { "source": "/register",          "destination": "/pages/auth/register.html" },
-    { "source": "/dashboard",         "destination": "/pages/dashboard/index.html" },
-    { "source": "/customers",         "destination": "/pages/customers/index.html" },
-    { "source": "/customers/create",  "destination": "/pages/customers/create.html" },
-    { "source": "/customers/:id",     "destination": "/pages/customers/details.html" },
-    { "source": "/agents",            "destination": "/pages/agents/index.html" },
-    { "source": "/agents/create",     "destination": "/pages/agents/create.html" },
-    { "source": "/chits",             "destination": "/pages/chits/index.html" },
-    { "source": "/chits/create",      "destination": "/pages/chits/create.html" },
-    { "source": "/chits/:id",         "destination": "/pages/chits/details.html" },
-    { "source": "/payments",          "destination": "/pages/payments/index.html" },
-    { "source": "/payments/:id",      "destination": "/pages/payments/details.html" },
-    { "source": "/reports",           "destination": "/pages/reports/index.html" },
-    { "source": "/audit-logs",        "destination": "/pages/audit-logs/index.html" },
-    { "source": "/admin-users",       "destination": "/pages/admin-users/index.html" },
-    { "source": "/settings",          "destination": "/pages/settings/index.html" }
+    { "source": "/pages/auth/:path*", "destination": "/pages/auth/:path*" },
+    { "source": "/((?!api/|pages/auth/|css/|js/|assets/|favicon.ico).*)", "destination": "/index.html" }
   ]
 }

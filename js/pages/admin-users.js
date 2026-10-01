@@ -1,17 +1,77 @@
-mountShell('admins'); const out = document.getElementById('out'); let sub = 'pending';
-const ask = (t, body, label, kind, fn, tab = 1) => modal({ title: t, body, actions: [{ label: 'Cancel' }, { label, kind, onClick: async (c, b, o) => { try { await fn(o.querySelector('textarea')?.value); c(); toast('Done'); show(tab); } catch (e) { toast(e.message); } } }] });
-async function show(i) {
-  loading(out);
-  try {
-    if (i === 0) { out.innerHTML = 'Loading…'; let r; const [ac, ia] = await Promise.all([AdminUserService.list('active'), AdminUserService.list('inactive')]); r = [...ac, ...ia]; const me = Auth.user(); if (me && me.role === 'super_admin') r.unshift({ id: me.id, name: me.name, mobile: me.mobile, role: 'super_admin', status: 'active', created_at: null });
-      out.innerHTML = table([{ h: 'Admin', f: (u) => `<div class="who"><span class="avatar">${fmt.initials(u.name)}</span><div><b>${esc(u.name)}</b><small>ADM-${String(u.id).padStart(3, '0')}</small></div></div>` }, { h: 'Mobile (login)', f: (u) => '+91 ' + esc(u.mobile) }, { h: 'Role', f: (u) => u.is_super_admin || u.role === 'super_admin' ? 'Super Admin' : 'Admin' }, { h: 'Registered', f: (u) => esc(u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—') }, { h: 'Status', f: (u) => pill(u.status) }, { h: '', f: (u) => u.is_super_admin || u.role === 'super_admin' ? '<small style="color:var(--muted)">Owner</small>' : `<button class="btn" style="height:28px" data-id="${u.id}" data-n="${esc(u.name)}" data-on="${u.status === 'active' ? 1 : 0}">${u.status === 'active' ? 'Deactivate' : 'Activate'}</button>`, r: 1 }], r);
-      out.querySelectorAll('button[data-id]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const on = b.dataset.on === '1'; ask(`${on ? 'Deactivate' : 'Activate'} ${b.dataset.n}?`, on ? '<div class="alert warn">They will not be able to log in to the console or the admin app.</div>' : '', on ? 'Deactivate' : 'Activate', on ? 'danger' : 'primary', () => Api.adminUsers.setActive(b.dataset.id, !on), 0); }); }
-    else { const r = await AdminUserService.list(sub); out.innerHTML = '<div id="ch"></div>' + table([{ h: 'Request', f: (u) => 'REG-' + String(u.id).padStart(3, '0') }, { h: 'Name', f: (u) => esc(u.name) }, { h: 'Mobile', f: (u) => '+91 ' + esc(u.mobile) }, { h: 'Status', f: (u) => pill(u.status) }], r, `No ${sub} requests.`);
-      Promise.all(['pending', 'active', 'rejected'].map((x) => AdminUserService.list(x).then((a) => a.length).catch(() => 0))).then((n) => document.querySelectorAll('#ch button').forEach((b, k) => b.textContent += ` (${n[k]})`));
-      chips(document.getElementById('ch'), ['Pending', 'Approved', 'Rejected'], (j, n) => { sub = ['pending', 'active', 'rejected'][j]; show(1); });
-      out.querySelectorAll('tr.click').forEach((tr) => tr.onclick = () => { const u = r[tr.dataset.i]; const d = drawer('REG-' + String(u.id).padStart(3, '0'), `<div style="margin-bottom:10px">${pill(u.status === 'pending' ? 'waiting for approval' : u.status)}</div>` + dl({ Name: esc(u.name), Mobile: '+91 ' + esc(u.mobile), Requested: esc(u.created_at ? new Date(u.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'), 'Role requested': 'Admin' }) + (u.status === 'pending' ? '<div class="note" style="margin:14px 0">Approving gives this person full admin access: all activities in this console and the admin app. Their PIN was chosen by them and is stored only as a secure hash.</div><div class="field l"><label>Your note <span style="color:var(--muted);font-weight:400">(required to reject)</span></label><textarea class="input" id="nt" placeholder="Explain your decision" style="height:80px;padding:8px 12px"></textarea></div><button class="btn primary" id="ap">Approve as admin</button> <button class="btn danger" id="rj">Reject</button>' : ''));
-        if (u.status === 'pending') { const nt = () => d.el.querySelector('#nt').value; d.el.querySelector('#ap').onclick = () => Api.adminUsers.approve(u.id, nt()).then(() => { d.close(); show(1); toast('Approved'); }).catch((e) => toast(e.message)); d.el.querySelector('#rj').onclick = () => nt() ? Api.adminUsers.reject(u.id, nt()).then(() => { d.close(); show(1); toast('Rejected'); }).catch((e) => toast(e.message)) : toast('A note is required to reject.'); } }); }
-  } catch (e) { failed(out, e.status === 403 ? new Error('Only a Super Admin can manage admin users.') : e); }
-}
-tabs(document.getElementById('tabs'), ['Admins', 'Registration requests'], show); show(0);
-AdminUserService.list('pending').then((a) => { if (a.length) document.querySelectorAll('#tabs button')[1].textContent = `Registration requests (${a.length})`; }).catch(() => {});
+window.Pages = window.Pages || {};
+window.Pages.adminUsers = {
+  title: 'Admin Users · Thandal',
+  nav: 'admins',
+  template: `<h1>Admin users</h1><p style="color:var(--muted)">People who can log in to this console and the admin app.</p><div id="tabs"></div><div id="out"></div>`,
+  init: function() {
+    mountShell('admins');
+    const out = document.getElementById('out');
+    let sub = 'pending';
+    const ask = (t, body, label, kind, fn, tab = 1) => modal({
+      title: t,
+      body,
+      actions: [{ label: 'Cancel' }, { label, kind, onClick: async (c, b, o) => {
+        try {
+          await fn(o.querySelector('textarea')?.value);
+          c();
+          toast('Done');
+          show(tab);
+        } catch (e) {
+          toast(e.message);
+        }
+      } }]
+    });
+
+    async function show(i) {
+      loading(out);
+      try {
+        if (i === 0) {
+          out.innerHTML = 'Loading…';
+          let r;
+          const [ac, ia] = await Promise.all([AdminUserService.list('active'), AdminUserService.list('inactive')]);
+          r = [...ac, ...ia];
+          const me = Auth.user();
+          if (me && (me.is_super_admin || me.role === 'super_admin')) {
+            r.unshift({ id: me.id, name: me.name, mobile: me.mobile, role: 'super_admin', status: 'active', created_at: null });
+          }
+          out.innerHTML = table([{ h: 'Admin', f: (u) => `<div class="who"><span class="avatar">${fmt.initials(u.name)}</span><div><b>${esc(u.name)}</b><small>ADM-${String(u.id).padStart(3, '0')}</small></div></div>` }, { h: 'Mobile (login)', f: (u) => '+91 ' + esc(u.mobile) }, { h: 'Role', f: (u) => u.is_super_admin || u.role === 'super_admin' ? 'Super Admin' : 'Admin' }, { h: 'Registered', f: (u) => esc(u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—') }, { h: 'Status', f: (u) => pill(u.status) }, { h: '', f: (u) => u.is_super_admin || u.role === 'super_admin' ? '<small style="color:var(--muted)">Owner</small>' : `<button class="btn" style="height:28px" data-id="${u.id}" data-n="${esc(u.name)}" data-on="${u.status === 'active' ? 1 : 0}">${u.status === 'active' ? 'Deactivate' : 'Activate'}</button>`, r: 1 }], r);
+          out.querySelectorAll('button[data-id]').forEach((b) => b.onclick = (e) => {
+            e.stopPropagation();
+            const on = b.dataset.on === '1';
+            ask(`${on ? 'Deactivate' : 'Activate'} ${b.dataset.n}?`, on ? '<div class="alert warn">They will not be able to log in to the console or the admin app.</div>' : '', on ? 'Deactivate' : 'Activate', on ? 'danger' : 'primary', () => Api.adminUsers.setActive(b.dataset.id, !on), 0);
+          });
+        } else {
+          const r = await AdminUserService.list(sub);
+          out.innerHTML = '<div id="ch"></div>' + table([{ h: 'Request', f: (u) => 'REG-' + String(u.id).padStart(3, '0') }, { h: 'Name', f: (u) => esc(u.name) }, { h: 'Mobile', f: (u) => '+91 ' + esc(u.mobile) }, { h: 'Status', f: (u) => pill(u.status) }], r, `No ${sub} requests.`);
+          Promise.all(['pending', 'active', 'rejected'].map((x) => AdminUserService.list(x).then((a) => a.length).catch(() => 0))).then((n) => {
+            document.querySelectorAll('#ch button').forEach((b, k) => b.textContent += ` (${n[k]})`);
+          });
+          chips(document.getElementById('ch'), ['Pending', 'Approved', 'Rejected'], (j, n) => {
+            sub = ['pending', 'active', 'rejected'][j];
+            show(1);
+          }, ['pending', 'active', 'rejected'].indexOf(sub));
+          out.querySelectorAll('tr.click').forEach((tr) => tr.onclick = () => {
+            const u = r[tr.dataset.i];
+            const d = drawer('REG-' + String(u.id).padStart(3, '0'), `<div style="margin-bottom:10px">${pill(u.status === 'pending' ? 'waiting for approval' : u.status)}</div>` + dl({ Name: esc(u.name), Mobile: '+91 ' + esc(u.mobile), Requested: esc(u.created_at ? new Date(u.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'), 'Role requested': 'Admin' }) + (u.status === 'pending' ? '<div class="note" style="margin:14px 0">Approving gives this person full admin access: all activities in this console and the admin app. Their PIN was chosen by them and is stored only as a secure hash.</div><div class="field l"><label>Your note <span style="color:var(--muted);font-weight:400">(required to reject)</span></label><textarea class="input" id="nt" placeholder="Explain your decision" style="height:80px;padding:8px 12px"></textarea></div><button class="btn primary" id="ap">Approve as admin</button> <button class="btn danger" id="rj">Reject</button>' : ''));
+            if (u.status === 'pending') {
+              const nt = () => d.el.querySelector('#nt').value;
+              d.el.querySelector('#ap').onclick = () => Api.adminUsers.approve(u.id, nt()).then(() => { d.close(); show(1); toast('Approved'); loadBadges(); }).catch((e) => toast(e.message));
+              d.el.querySelector('#rj').onclick = () => nt() ? Api.adminUsers.reject(u.id, nt()).then(() => { d.close(); show(1); toast('Rejected'); loadBadges(); }).catch((e) => toast(e.message)) : toast('A note is required to reject.');
+            }
+          });
+        }
+      } catch (e) {
+        failed(out, e.status === 403 ? new Error('Only a Super Admin can manage admin users.') : e);
+      }
+    }
+
+    tabs(document.getElementById('tabs'), ['Admins', 'Registration requests'], show);
+    show(0);
+    AdminUserService.list('pending').then((a) => {
+      if (a.length) {
+        const btn = document.querySelectorAll('#tabs button')[1];
+        if (btn) btn.textContent = `Registration requests (${a.length})`;
+      }
+    }).catch(() => {});
+  }
+};

@@ -8,7 +8,7 @@ if (login) login.onsubmit = async (e) => {
     const r = await Api.auth.login(login.mobile.value.trim(), login.pin.value);
     Auth.save(r.token, r.user);
     if (r.user.role !== 'admin' && r.user.role !== 'super_admin') { Auth.clear(); throw new ApiError(403, { message: 'This console is for admins. Customers and agents use the mobile app.' }); }
-    location.href = '../dashboard/index.html';
+    location.href = '/dashboard';
   } catch (err) {
     showErrors(login, err);
     const left = err.body?.attempts_left != null && !/attempt/i.test(err.message) ? ` ${err.body.attempts_left} attempt(s) left.` : '';

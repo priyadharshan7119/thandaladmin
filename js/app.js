@@ -12,18 +12,18 @@ const ICON = {
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>'
 };
 const NAV = [
-  ['Dashboard', 'dashboard/index.html', 'dashboard'],
+  ['Dashboard', '/dashboard', 'dashboard'],
   ['MANAGE'],
-  ['Customers', 'customers/index.html', 'customers'],
-  ['Agents', 'agents/index.html', 'agents'],
-  ['Chit accounts', 'chits/index.html', 'chits'],
+  ['Customers', '/customers', 'customers'],
+  ['Agents', '/agents', 'agents'],
+  ['Chit accounts', '/chits', 'chits'],
   ['MONEY'],
-  ['Payments', 'payments/index.html', 'payments'],
-  ['Reports', 'reports/index.html', 'reports'],
+  ['Payments', '/payments', 'payments'],
+  ['Reports', '/reports', 'reports'],
   ['SYSTEM'],
-  ['Audit logs', 'audit-logs/index.html', 'audit'],
-  ['Admin users', 'admin-users/index.html', 'admins'],
-  ['System settings', 'settings/index.html', 'settings']
+  ['Audit logs', '/audit-logs', 'audit'],
+  ['Admin users', '/admin-users', 'admins'],
+  ['System settings', '/settings', 'settings']
 ];
 const fmt = {
   money: (v) => typeof v === 'number' ? '₹' + v.toLocaleString('en-IN') : (v ?? '—'),
@@ -44,22 +44,36 @@ function modal({ title, body, actions = [] }) {
   document.body.append(o); return { close, el: o };
 }
 
-async function logout() { try { await Api.auth.logout(); } catch {} Auth.clear(); location.href = document.body.dataset.root + 'pages/auth/login.html'; }
+async function logout() { try { await Api.auth.logout(); } catch {} Auth.clear(); location.href = '/pages/auth/login.html'; }
 
 const roleLabel = (u) => u.is_super_admin || u.role === 'super_admin' ? 'Super Admin' : (u.role || '').replace(/^./, (c) => c.toUpperCase());
+
 function mountShell(active) {
-  const root = document.body.dataset.root; Auth.guard(root);
+  if (document.getElementById('spa-nav')) {
+    // SPA mode: shell is already loaded and persistent
+    if (active) {
+      document.querySelectorAll('#spa-nav a').forEach((a) => {
+        a.classList.toggle('on', a.dataset.route === active);
+      });
+    }
+    loadBadges();
+    return;
+  }
+
+  // Fallback for standalone pages if opened directly without SPA router
+  const root = document.body.dataset.root || '/';
+  Auth.guard(root);
   const u = Auth.user() || {};
   const links = NAV.map((n) => n.length === 1 ? `<div class="nav-h">${n[0]}</div>`
-    : `<a href="${root}pages/${n[1]}" class="${n[2] === active ? 'on' : ''}"><svg viewBox="0 0 24 24">${ICON[n[2]]}</svg>${n[0]}<span class="badge-n" data-badge="${n[2]}" hidden></span></a>`).join('');
-  const main = document.querySelector('main'); const content = main.innerHTML;
-  document.body.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand">${ICON.logo}<div>Thandal<small>Super Admin</small></div></div><nav class="nav">${links}</nav></aside>
-  <div><header class="topbar"><button class="menu" id="mn" aria-label="Menu">☰</button><input class="input search" id="gs" placeholder="Search customers, chits, receipts…" aria-label="Search"><button class="bell" id="bell" aria-label="Notifications" title="Pending items"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0112 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 004 0"/></svg><i hidden></i></button><button class="me" id="me"><span class="avatar">${fmt.initials(u.name)}</span><span><b>${esc(u.name || 'Admin')}</b>${esc(roleLabel(u))}</span></button></header><main class="main">${content}</main></div></div>`;
-  const gs = document.getElementById('gs'); gs.onkeydown = (e) => { if (e.key === 'Enter' && gs.value.trim()) location.href = root + 'pages/customers/index.html?q=' + encodeURIComponent(gs.value.trim()); };
-  document.getElementById('mn').onclick = () => document.querySelector('.sidebar').classList.toggle('open');
-  document.getElementById('bell').onclick = () => location.href = root + 'pages/payments/index.html';
+    : `<a href="${n[1]}" data-route="${n[2]}" class="${n[2] === active ? 'on' : ''}"><svg viewBox="0 0 24 24">${ICON[n[2]]}</svg>${n[0]}<span class="badge-n" data-badge="${n[2]}" hidden></span></a>`).join('');
+  const main = document.querySelector('main'); const content = main ? main.innerHTML : '';
+  document.body.innerHTML = `<div class="shell" id="app"><aside class="sidebar" id="sidebar"><div class="brand">${ICON.logo}<div>Thandal<small>Super Admin</small></div></div><nav class="nav" id="spa-nav">${links}</nav></aside>
+  <div class="app-main"><header class="topbar" id="header"><button class="menu" id="mn" aria-label="Menu">☰</button><input class="input search" id="gs" placeholder="Search customers, chits, receipts…" aria-label="Search"><button class="bell" id="bell" aria-label="Notifications" title="Pending items"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0112 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 004 0"/></svg><i hidden></i></button><button class="me" id="me"><span class="avatar">${fmt.initials(u.name)}</span><span><b>${esc(u.name || 'Admin')}</b>${esc(roleLabel(u))}</span></button></header><main class="main" id="app-content">${content}</main></div></div>`;
+  const gs = document.getElementById('gs'); if (gs) gs.onkeydown = (e) => { if (e.key === 'Enter' && gs.value.trim()) (window.Router ? Router.go('/customers?q=' + encodeURIComponent(gs.value.trim())) : location.href = '/customers?q=' + encodeURIComponent(gs.value.trim())); };
+  const mn = document.getElementById('mn'); if (mn) mn.onclick = () => document.querySelector('.sidebar')?.classList.toggle('open');
+  const bell = document.getElementById('bell'); if (bell) bell.onclick = () => (window.Router ? Router.go('/payments') : location.href = '/payments');
   loadBadges();
-  document.getElementById('me').onclick = () => modal({ title: 'Log out?', body: '<p style="color:var(--muted)">You will need your mobile number and PIN to sign in again.</p>', actions: [{ label: 'Cancel' }, { label: 'Log out', kind: 'primary', onClick: logout }] });
+  const me = document.getElementById('me'); if (me) me.onclick = () => modal({ title: 'Log out?', body: '<p style="color:var(--muted)">You will need your mobile number and PIN to sign in again.</p>', actions: [{ label: 'Cancel' }, { label: 'Log out', kind: 'primary', onClick: logout }] });
 }
 
 function showErrors(form, err) {
